@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 -- API key verification
 local function verifyKey(key)
     local success, response = pcall(function()
-        return HttpService:GetAsync("https://your-api-endpoint.com/verify?key=" .. key)
+        return HttpService:GetAsync("http://127.0.0.1:5000/verify?key=" .. key)
     end)
     if success then
         local data = HttpService:JSONDecode(response)
