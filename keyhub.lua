@@ -1,29 +1,33 @@
 -- Script Cao Cấp với Giao Diện Hiện Đại
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
--- Kiểm tra khóa API
+-- Kiểm tra khóa API với thử lại
 local function verifyKey(key)
-    local success, response = pcall(function()
-        -- Thay thế bằng điểm cuối API công cộng của bạn (HTTPS)
-        return HttpService:GetAsync("http://127.0.0.1:5000/verify?key=" .. key)
-    end)
-    if success then
-        local success_decode, data = pcall(function()
-            return HttpService:JSONDecode(response)
+    local maxRetries = 3
+    local retryDelay = 2
+    for attempt = 1, maxRetries do
+        local success, response = pcall(function()
+            return HttpService:GetAsync("http://192.168.1.10:5000/verify?key=" .. key, true, {["Timeout"] = 10})
         end)
-        if success_decode then
-            if not data.exists then
-                return false, "Khóa không hợp lệ: Khóa không tồn tại."
-            elseif not data.redeemed then
-                return false, "Khóa chưa được kích hoạt: Vui lòng kích hoạt khóa bằng lệnh /redeem."
+        if success then
+            local success_decode, data = pcall(function()
+                return HttpService:JSONDecode(response)
+            end)
+            if success_decode then
+                if not data.exists then
+                    return false, "Khóa không hợp lệ: Khóa không tồn tại."
+                elseif not data.redeemed then
+                    return false, "Khóa chưa được kích hoạt: Vui lòng kích hoạt khóa bằng lệnh /redeem."
+                end
+                return data.valid, "Khóa đã được xác minh thành công."
+            else
+                return false, "Lỗi khi phân tích phản hồi từ API."
             end
-            return data.valid, "Khóa đã được xác minh thành công."
-        else
-            return false, "Lỗi khi phân tích phản hồi từ API: Dữ liệu không đúng định dạng."
         end
+        wait(retryDelay)
     end
     return false, "Không thể kết nối với API. Vui lòng kiểm tra URL API hoặc kết nối mạng."
 end
@@ -46,78 +50,69 @@ local Window = Library:CreateWindow("Trung Tâm Script Cao Cấp", {
     AccentColor = Color3.fromRGB(0, 120, 255),
     Transparency = 0.15,
     CornerRadius = 10,
-    Animation = true,
-    AnimationSpeed = 0.5
+    Animation = {Type = "FadeIn", Duration = 0.5}
 })
 
--- Hiệu ứng động cho các phần tử UI
-local function animateElement(element)
-    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-    local tween = TweenService:Create(element, tweenInfo, {Transparency = 0})
-    tween:Play()
-end
-
 -- Tab Chính với thiết kế hiện đại
-local MainTab = Window:CreateTab("Chính", "rbxasset://textures/ui/GuiImagePlaceholder.png")
+local MainTab = Window:CreateTab("Chính", "rbxasset://textures/ui/GuiImagePlaceholder.png", {
+    Animation = {Type = "SlideIn", Direction = "Left", Duration = 0.3}
+})
 MainTab:CreateSection("Chào Mừng, " .. LocalPlayer.Name .. "!", {
-    Font = Enum.Font.GothamBold,
-    TextColor = Color3.fromRGB(255, 255, 255),
-    BackgroundColor = Color3.fromRGB(30, 30, 30)
+    Gradient = {Color3.fromRGB(0, 120, 255), Color3.fromRGB(0, 255, 200)},
+    Font = Enum.Font.GothamBold
 })
 MainTab:CreateLabel("Khóa của bạn: " .. getgenv().Key, {
     TextColor = Color3.fromRGB(150, 200, 255),
     Font = Enum.Font.GothamBold,
-    Transparency = 0.5
+    Animation = {Type = "FadeIn", Duration = 0.4}
 })
 
 MainTab:CreateButton("Kích Hoạt Tính Năng Cao Cấp", function()
     print("Tính năng cao cấp đã được kích hoạt!")
     Library:Notify("Tính Năng Đã Kích Hoạt!", 3, "Thành Công", {
-        Color = Color3.fromRGB(0, 255, 100)
+        Animation = {Type = "PopIn", Duration = 0.3}
     })
     -- Thêm chức năng script cao cấp tại đây
 end, {
     Color = Color3.fromRGB(0, 170, 255),
     HoverColor = Color3.fromRGB(0, 200, 255),
     TextColor = Color3.fromRGB(255, 255, 255),
-    BorderColor = Color3.fromRGB(0, 100, 200),
-    Animation = "Fade"
+    BorderColor = Color3.fromRGB(50, 50, 50),
+    Animation = {Type = "Scale", Duration = 0.2}
 })
 
-MainTab:CreateToggle("Tự Động Kích Hoạt", false, function(state)
+MainTab:CreateToggle("Tự Động Kích Hoạt Tính Năng", false, function(state)
     print("Tự động kích hoạt được đặt thành: " .. tostring(state))
-    Library:Notify("Tự Động Kích Hoạt: " .. (state and "Bật" or "Tắt"), 2, "Thông Tin")
     -- Thêm logic tự động kích hoạt tại đây
 end, {
     EnabledColor = Color3.fromRGB(0, 255, 100),
     DisabledColor = Color3.fromRGB(100, 100, 100),
-    Animation = "Slide"
+    Animation = {Type = "FadeIn", Duration = 0.3}
 })
 
 MainTab:CreateSlider("Cường Độ Tính Năng", 0, 100, 50, function(value)
     print("Cường độ tính năng được đặt thành: " .. value)
-    Library:Notify("Cường độ: " .. value, 2, "Thông Tin")
     -- Thêm logic dựa trên cường độ tại đây
 end, {
     Color = Color3.fromRGB(0, 120, 255),
     MarkerColor = Color3.fromRGB(255, 255, 255),
-    Animation = "Smooth"
+    Gradient = {Color3.fromRGB(0, 120, 255), Color3.fromRGB(0, 255, 200)},
+    Animation = {Type = "Slide", Duration = 0.3}
 })
 
-MainTab:CreateTextbox("Nhập Mã Tùy Chỉnh", "Nhập mã...", function(value)
-    print("Mã tùy chỉnh: " .. value)
-    Library:Notify("Đã nhập mã: " .. value, 3, "Thành Công")
-end, {
-    Color = Color3.fromRGB(50, 50, 50),
-    TextColor = Color3.fromRGB(200, 200, 200),
-    PlaceholderColor = Color3.fromRGB(150, 150, 150)
+-- Thanh trạng thái
+MainTab:CreateLabel("Trạng Thái: Đã Kết Nối", {
+    TextColor = Color3.fromRGB(0, 255, 100),
+    Font = Enum.Font.Gotham,
+    Animation = {Type = "FadeIn", Duration = 0.5}
 })
 
 -- Tab Cài Đặt với các tính năng bổ sung
-local SettingsTab = Window:CreateTab("Cài Đặt", "rbxasset://textures/ui/Settings.png")
+local SettingsTab = Window:CreateTab("Cài Đặt", "rbxasset://textures/ui/Settings.png", {
+    Animation = {Type = "SlideIn", Direction = "Right", Duration = 0.3}
+})
 SettingsTab:CreateSection("Quản Lý Tài Khoản", {
-    Font = Enum.Font.GothamBold,
-    TextColor = Color3.fromRGB(255, 255, 255)
+    Gradient = {Color3.fromRGB(255, 50, 50), Color3.fromRGB(255, 100, 100)}
 })
 SettingsTab:CreateButton("Đăng Xuất", function()
     LocalPlayer:Kick("Đã đăng xuất. Vui lòng khởi động lại script với khóa mới.")
@@ -125,35 +120,34 @@ end, {
     Color = Color3.fromRGB(255, 50, 50),
     HoverColor = Color3.fromRGB(255, 100, 100),
     TextColor = Color3.fromRGB(255, 255, 255),
-    Animation = "Fade"
+    BorderColor = Color3.fromRGB(50, 50, 50),
+    Animation = {Type = "Scale", Duration = 0.2}
 })
 
 SettingsTab:CreateDropdown("Giao Diện", {"Tối", "Sáng", "Neon"}, "Tối", function(theme)
-    local themeMap = {["Tối"] = "Dark", ["Sáng"] = "Light", ["Neon"] = "Neon"}
-    Library:SetTheme(themeMap[theme])
-    Library:Notify("Giao diện đã đổi thành " .. theme, 3, "Thông Tin")
+    Library:SetTheme(theme == "Tối" and "Dark" or theme == "Sáng" and "Light" or "Neon")
+    Library:Notify("Giao diện đã đổi thành " .. theme, 3, "Thông Tin", {
+        Animation = {Type = "PopIn", Duration = 0.3}
+    })
 end, {
     Color = Color3.fromRGB(50, 50, 50),
     TextColor = Color3.fromRGB(200, 200, 200),
-    Animation = "Drop"
+    Animation = {Type = "FadeIn", Duration = 0.3}
 })
 
-SettingsTab:CreateButton("Kiểm Tra Kết Nối API", function()
-    local isValid, message = verifyKey(getgenv().Key)
-    Library:Notify(isValid and "Kết nối API thành công!" or "Kết nối API thất bại: " .. message, 4, isValid and "Thành Công" or "Lỗi")
-end, {
-    Color = Color3.fromRGB(0, 150, 150),
-    HoverColor = Color3.fromRGB(0, 180, 180),
-    TextColor = Color3.fromRGB(255, 255, 255)
+-- Thông tin người dùng
+SettingsTab:CreateSection("Thông Tin Người Dùng")
+SettingsTab:CreateLabel("Tên: " .. LocalPlayer.Name, {
+    TextColor = Color3.fromRGB(200, 200, 200),
+    Font = Enum.Font.Gotham
+})
+SettingsTab:CreateLabel("ID: " .. LocalPlayer.UserId, {
+    TextColor = Color3.fromRGB(200, 200, 200),
+    Font = Enum.Font.Gotham
 })
 
--- Khởi tạo Giao Diện với hiệu ứng động
+-- Khởi tạo Giao Diện
 Library:Notify("Trung Tâm Script Cao Cấp Đã Tải", 5, "Thành Công", {
-    Animation = "FadeIn",
-    Color = Color3.fromRGB(0, 255, 100)
+    Animation = {Type = "FadeIn", Duration = 0.5}
 })
 Window:SelectTab(MainTab)
-for _, element in pairs(Window:GetElements()) do
-    element.Transparency = 1
-    animateElement(element)
-end
