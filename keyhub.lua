@@ -7,7 +7,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Kiểm tra khóa API
 local function verifyKey(key)
     local success, response = pcall(function()
-        -- Thay thế bằng điểm cuối API thực tế của bạn
+        -- Thay thế bằng điểm cuối API công cộng của bạn (HTTPS)
         return HttpService:GetAsync("http://127.0.0.1:5000/verify?key=" .. key)
     end)
     if success then
@@ -22,10 +22,10 @@ local function verifyKey(key)
             end
             return data.valid, "Khóa đã được xác minh thành công."
         else
-            return false, "Lỗi khi phân tích phản hồi từ API."
+            return false, "Lỗi khi phân tích phản hồi từ API: Dữ liệu không đúng định dạng."
         end
     end
-    return false, "Không thể kết nối với API. Vui lòng kiểm tra máy chủ API hoặc kết nối mạng."
+    return false, "Không thể kết nối với API. Vui lòng kiểm tra URL API hoặc kết nối mạng."
 end
 
 -- Đá người chơi nếu khóa không hợp lệ hoặc chưa được kích hoạt
@@ -46,7 +46,7 @@ local Window = Library:CreateWindow("Trung Tâm Script Cao Cấp", {
     AccentColor = Color3.fromRGB(0, 120, 255),
     Transparency = 0.15,
     CornerRadius = 10,
-    Animation = true, -- Bật hiệu ứng động
+    Animation = true,
     AnimationSpeed = 0.5
 })
 
