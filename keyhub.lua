@@ -52,11 +52,11 @@ end
 if not result.valid or not result.redeemed then
     local errorMsg
     if not result.exists then
-        errorMsg = "Key không hợp lệ. Vui lòng sử dụng /genkey và /redeem trên Discord."
+        errorMsg = "Khóa không hợp lệ. Vui lòng sử dụng /genkey và /redeem trên Discord."
     elseif not result.redeemed then
-        errorMsg = "Key chưa được kích hoạt. Vui lòng sử dụng /redeem trên Discord."
+        errorMsg = "Khóa chưa được kích hoạt. Vui lòng sử dụng /redeem trên Discord."
     else
-        errorMsg = "Key không hợp lệ. Vui lòng kiểm tra lại."
+        errorMsg = "Khóa không hợp lệ. Vui lòng kiểm tra lại."
     end
     Player:Kick("Lỗi: " .. errorMsg)
     return
@@ -68,18 +68,12 @@ ScreenGui.Parent = Player.PlayerGui
 ScreenGui.Name = "PremiumUI"
 ScreenGui.ResetOnSpawn = false
 
--- Adjust size based on device
-local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-local frameSize = isMobile and UDim2.new(0.8, 0, 0.9, 0) or UDim2.new(0.5, 0, 0.6, 0)
-local framePosition = isMobile and UDim2.new(0.1, 0, 0.05, 0) or UDim2.new(0.25, 0, 0.2, 0)
-
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = frameSize
-MainFrame.Position = UDim2.new(0.25, 0, -0.6, 0) -- Start off-screen for animation
+MainFrame.Size = UDim2.new(0, 300, 0, 400) -- Fixed size for mobile/PC scaling
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
-MainFrame.Visible = false -- Hidden by default, toggled by button
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 15)
@@ -100,70 +94,64 @@ Title.Text = "Script Premium"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBlack
-Title.TextStrokeTransparency = 0.8
+Title.TextStrokeTransparency = 0.7
 Title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Title.Parent = MainFrame
 
 -- Toggle Button
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(0.1, 0, 0.05, 0)
-ToggleButton.Position = UDim2.new(0.9, -50, 0.9, -30)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+ToggleButton.Position = UDim2.new(0.9, -30, 0.05, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
 ToggleButton.Text = "☰"
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleButton.TextScaled = true
 ToggleButton.Font = Enum.Font.GothamBold
-ToggleButton.Parent = ScreenGui
+ToggleButton.Parent = MainFrame
 
 local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 10)
+ToggleCorner.CornerRadius = UDim.new(0, 5)
 ToggleCorner.Parent = ToggleButton
 
-local ToggleGradient = Instance.new("UIGradient")
-ToggleGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 170))
-}
-ToggleGradient.Rotation = 45
-ToggleGradient.Parent = ToggleButton
-
-local isMenuVisible = false
+local isMenuVisible = true
 ToggleButton.MouseButton1Click:Connect(function()
     isMenuVisible = not isMenuVisible
-    MainFrame.Visible = isMenuVisible
-    if isMenuVisible then
-        TweenService:Create(MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = framePosition}):Play()
-    else
-        TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(0.25, 0, -0.6, 0)}):Play()
-    end
+    local targetPos = isMenuVisible and UDim2.new(0.5, -150, 0.5, -200) or UDim2.new(0.5, -150, 1.5, 0)
+    TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos}):Play()
 end)
 
 -- Button Container
 local ButtonContainer = Instance.new("Frame")
-ButtonContainer.Size = UDim2.new(0.9, 0, 0.7, 0)
+ButtonContainer.Size = UDim2.new(0.9, 0, 0.75, 0)
 ButtonContainer.Position = UDim2.new(0.05, 0, 0.15, 0)
 ButtonContainer.BackgroundTransparency = 1
 ButtonContainer.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, isMobile and 5 or 10)
+UIListLayout.Padding = UDim.new(0, 10)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Parent = ButtonContainer
 
-local function createButton(text, callback, isToggle)
+-- Function to create toggle button
+local function createToggleButton(text, defaultState, callback)
+    local ButtonFrame = Instance.new("Frame")
+    ButtonFrame.Size = UDim2.new(1, 0, 0, 50)
+    ButtonFrame.BackgroundTransparency = 1
+    ButtonFrame.Parent = ButtonContainer
+
     local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1, 0, 0, isMobile and 40 or 50)
+    Button.Size = UDim2.new(1, 0, 1, 0)
     Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Button.Text = text
+    Button.Text = text .. (defaultState and " [ON]" or " [OFF]")
     Button.TextColor3 = Color3.fromRGB(255, 255, 255)
     Button.TextScaled = true
     Button.Font = Enum.Font.GothamBold
-    Button.Parent = ButtonContainer
-    
+    Button.Parent = ButtonFrame
+
     local ButtonCorner = Instance.new("UICorner")
     ButtonCorner.CornerRadius = UDim.new(0, 10)
     ButtonCorner.Parent = Button
-    
+
     local ButtonGradient = Instance.new("UIGradient")
     ButtonGradient.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
@@ -171,70 +159,123 @@ local function createButton(text, callback, isToggle)
     }
     ButtonGradient.Rotation = 45
     ButtonGradient.Parent = Button
-    
-    if isToggle then
-        local isActive = false
-        Button.MouseButton1Click:Connect(function()
-            isActive = not isActive
-            Button.BackgroundColor3 = isActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(30, 30, 30)
-            callback(isActive)
+
+    local isOn = defaultState
+    Button.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        Button.Text = text .. (isOn and " [ON]" or " [OFF]")
+        if isOn then
+            ButtonGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 0)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 170, 255))
+            }
+        else
+            ButtonGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 170))
+            }
+        end
+        callback(isOn)
+    end)
+end
+
+-- Implement features
+local function autoFarm(isActive)
+    if isActive then
+        spawn(function()
+            while isActive and wait(0.1) do
+                for _, v in pairs(game.Workspace:GetDescendants()) do
+                    if v.Name == "FarmSpot" then -- Replace with actual farm spot name
+                        Player.Character.HumanoidRootPart.CFrame = v.CFrame
+                        wait(0.5)
+                    end
+                end
+            end
         end)
-    else
-        Button.MouseButton1Click:Connect(callback)
     end
 end
 
--- Feature Implementations
-local autoFarmActive = false
-createButton("Auto Farm", function(active)
-    autoFarmActive = active
-    spawn(function()
-        while autoFarmActive and wait(1) do
-            local humanoidRootPart = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-            if humanoidRootPart then
-                humanoidRootPart.CFrame = CFrame.new(0, 50, 0) -- Placeholder: Move to a farm area
-                print("Auto Farm đang hoạt động...")
+local function autoLevel(isActive)
+    if isActive then
+        spawn(function()
+            while isActive and wait(1) do
+                local levelPart = game.Workspace:FindFirstChild("LevelUpPart") -- Replace with actual part name
+                if levelPart then
+                    Player.Character.HumanoidRootPart.CFrame = levelPart.CFrame
+                    wait(0.5)
+                    game:GetService("ReplicatedStorage").LevelUp:FireServer() -- Replace with actual level-up event
+                end
+            end
+        end)
+    end
+end
+
+local function esp(isActive)
+    if isActive then
+        spawn(function()
+            while isActive and wait(0.5) do
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= Player then
+                        local billboard = Instance.new("BillboardGui")
+                        billboard.Parent = player.Character and player.Character:FindFirstChild("Head") or nil
+                        billboard.Size = UDim2.new(0, 100, 0, 50)
+                        billboard.AlwaysOnTop = true
+                        local text = Instance.new("TextLabel")
+                        text.Parent = billboard
+                        text.Size = UDim2.new(1, 0, 1, 0)
+                        text.Text = player.Name
+                        text.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    end
+                end
+            end
+        end)
+    else
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Player then
+                local billboard = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("BillboardGui")
+                if billboard then billboard:Destroy() end
             end
         end
-    end)
-end, true)
-
-createButton("Level Hack", function()
-    local character = Player.Character
-    if character and character:FindFirstChild("Humanoid") then
-        character.Humanoid.WalkSpeed = 100 -- Placeholder: Increase level/speed
-        print("Level Hack đã kích hoạt!")
     end
-end)
+end
 
-createButton("Speed Hack", function()
-    local character = Player.Character
-    if character and character:FindFirstChild("Humanoid") then
-        character.Humanoid.WalkSpeed = 50 -- Adjustable speed
-        print("Speed Hack đã kích hoạt!")
+local function aimbot(isActive)
+    if isActive then
+        spawn(function()
+            while isActive and wait(0.1) do
+                local target = nil
+                local maxDist = math.huge
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= Player and player.Character and player.Character:FindFirstChild("Head") then
+                        local dist = (Player.Character.Head.Position - player.Character.Head.Position).Magnitude
+                        if dist < maxDist then
+                            maxDist = dist
+                            target = player.Character.Head
+                        end
+                    end
+                end
+                if target then
+                    Player.Character.HumanoidRootPart.CFrame = CFrame.new(Player.Character.HumanoidRootPart.Position, target.Position)
+                end
+            end
+        end)
     end
-end)
+end
 
--- Close Button
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0.1, 0, 0.05, 0)
-CloseButton.Position = UDim2.new(0.85, 0, 0.05, 0)
-CloseButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-CloseButton.Text = "X"
-CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.TextScaled = true
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.Parent = MainFrame
+local function speedHack(isActive)
+    if isActive then
+        Player.Character.Humanoid.WalkSpeed = 50 -- Adjust speed as needed
+    else
+        Player.Character.Humanoid.WalkSpeed = 16 -- Reset to default
+    end
+end
 
-local UICornerClose = Instance.new("UICorner")
-UICornerClose.CornerRadius = UDim.new(0, 5)
-UICornerClose.Parent = CloseButton
-
-CloseButton.MouseButton1Click:Connect(function()
-    TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(0.25, 0, -0.6, 0)}):Play()
-    wait(0.5)
-    MainFrame.Visible = false
-end)
+-- Create toggle buttons
+createToggleButton("Auto Farm", false, autoFarm)
+createToggleButton("Auto Level", false, autoLevel)
+createToggleButton("ESP", false, esp)
+createToggleButton("Aimbot", false, aimbot)
+createToggleButton("Speed Hack", false, speedHack)
 
 -- Draggable UI
 local dragging, dragInput, dragStart, startPos
@@ -257,7 +298,7 @@ MainFrame.InputBegan:Connect(function(input)
 end)
 
 MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         dragInput = input
     end
 end)
@@ -268,5 +309,8 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Welcome animation (triggered on toggle)
+-- Welcome animation
+MainFrame.Position = UDim2.new(0.5, -150, 1.5, 0)
+TweenService:Create(MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -150, 0.5, -200)}):Play()
+
 print("Script Premium đã tải thành công!")
