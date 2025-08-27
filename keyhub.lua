@@ -8,40 +8,45 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Player = Players.LocalPlayer
-local API_URL = "https://192.168.1.20:5000"  -- Ensure HTTP for local testing
+local API_URL = "https://192.168.1.20:5000"  -- Update to your deployed API URL
 
--- Function to verify key with retry logic and debugging
+-- Function to verify key with retry logic and SSL bypass for local testing
 local function verifyKey(key, maxRetries, retryDelay)
     local retries = 0
     while retries < maxRetries do
-        print("Attempting to verify key:", key, "Retry:", retries + 1)
-        local success, response = pcall(function()
-            return HttpService:GetAsync(API_URL .. "/verify?key=" .. HttpService:UrlEncode(key))
+        local success, response
+        -- Use RequestInternal with IgnoreSslValidation for self-signed certificates (local testing only)
+        success, response = pcall(function()
+            return HttpService:RequestInternal({
+                Url = API_URL .. "/verify?key=" .. HttpService:UrlEncode(key),
+                Method = "GET",
+                IgnoreSslValidation = true -- Bypass SSL for local testing
+            }).Body
         end)
         
         if success then
-            print("Received response:", response)
             local decodeSuccess, result = pcall(function()
                 return HttpService:JSONDecode(response)
             end)
             
             if decodeSuccess then
                 if result.error then
-                    print("API Error:", result.error)
+                    print("API Error: " .. result.error)
                     return false, "API Error: " .. result.error
                 end
-                print("Verification result:", result)
+                print("Key verification result: ", result)
                 return true, result
             else
-                print("Failed to parse response:", response)
+                print("Failed to parse API response: ", response)
                 return false, "Failed to parse API response"
             end
         else
-            print("Connection failed, error:", response)
             retries = retries + 1
+            print("Connection attempt " .. retries .. " failed: " .. tostring(response))
             if retries < maxRetries then
                 wait(retryDelay)
             else
+                print("All " .. maxRetries .. " attempts failed. Check API server at " .. API_URL)
                 return false, "Connection error: Unable to reach API after " .. maxRetries .. " attempts"
             end
         end
@@ -51,7 +56,7 @@ end
 -- Verify key
 local success, result = verifyKey(getgenv().Key, 3, 1)
 if not success then
-    Player:Kick("Lỗi: " .. result .. ". Liên hệ quản trị viên hoặc thử lại sau.")
+    Player:Kick("Lỗi: " .. result .. ". \n- Đảm bảo API đang chạy tại " .. API_URL .. ". \n- Nếu dùng chứng chỉ tự ký, triển khai API với chứng chỉ đáng tin cậy. \nLiên hệ quản trị viên hoặc thử lại sau.")
     return
 end
 
@@ -191,7 +196,7 @@ local function autoFarm(isActive)
         spawn(function()
             while isActive and wait(0.1) do
                 for _, v in pairs(game.Workspace:GetDescendants()) do
-                    if v.Name == "FarmSpot" then
+                    if v.Name == "FarmSpot" then -- Replace with actual farm spot name
                         Player.Character.HumanoidRootPart.CFrame = v.CFrame
                         wait(0.5)
                     end
@@ -205,11 +210,11 @@ local function autoLevel(isActive)
     if isActive then
         spawn(function()
             while isActive and wait(1) do
-                local levelPart = game.Workspace:FindFirstChild("LevelUpPart")
+                local levelPart = game.Workspace:FindFirstChild("LevelUpPart") -- Replace with actual part name
                 if levelPart then
                     Player.Character.HumanoidRootPart.CFrame = levelPart.CFrame
                     wait(0.5)
-                    game:GetService("ReplicatedStorage").LevelUp:FireServer()
+                    game:GetService("ReplicatedStorage").LevelUp:FireServer() -- Replace with actual level-up event
                 end
             end
         end)
@@ -222,24 +227,29 @@ local function esp(isActive)
             while isActive and wait(0.5) do
                 for _, player in pairs(Players:GetPlayers()) do
                     if player ~= Player then
-                        local billboard = Instance.new("BillboardGui")
-                        billboard.Parent = player.Character and player.Character:FindFirstChild("Head") or nil
-                        billboard.Size = UDim2.new(0, 100, 0, 50)
-                        billboard.AlwaysOnTop = true
-                        local text = Instance.new("TextLabel")
-                        text.Parent = billboard
-                        text.Size = UDim2.new(1, 0, 1, 0)
-                        text.Text = player.Name
-                        text.TextColor3 = Color3.fromRGB(0, 255, 0)
+                        local billboard = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("ESPBillboard")
+                        if not billboard then
+                            billboard = Instance.new("BillboardGui")
+                            billboard.Name = "ESPBillboard"
+                            billboard.Parent = player.Character and player.Character:FindFirstChild("Head") or nil
+                            billboard.Size = UDim2.new(0, 100, 0, 50)
+                            billboard.AlwaysOnTop = true
+                            local text = Instance.new("TextLabel")
+                            text.Parent = billboard
+                            text.Size = UDim2.new(1, 0, 1, 0)
+                            text.Text = player.Name
+                            text.TextColor3 = Color3.fromRGB(0, 255, 0)
+                            text.BackgroundTransparency = 1
+                        end
                     end
                 end
             end
-        end)
-    else
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= Player then
-                local billboard = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("BillboardGui")
-                if billboard then billboard:Destroy() end
+        else
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= Player then
+                    local billboard = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("ESPBillboard")
+                    if billboard then billboard:Destroy() end
+                end
             end
         end
     end
@@ -270,9 +280,9 @@ end
 
 local function speedHack(isActive)
     if isActive then
-        Player.Character.Humanoid.WalkSpeed = 50
+        Player.Character.Humanoid.WalkSpeed = 50 -- Adjust speed as needed
     else
-        Player.Character.Humanoid.WalkSpeed = 16
+        Player.Character.Humanoid.WalkSpeed = 16 -- Reset to default
     end
 end
 
