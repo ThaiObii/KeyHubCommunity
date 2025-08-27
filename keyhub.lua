@@ -8,30 +8,36 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Player = Players.LocalPlayer
-local API_URL = "https://192.168.1.20:5000"  -- Update to your deployed API URL
+local API_URL = "https://192.168.1.20:5000"  -- Ensure HTTP for local testing
 
--- Function to verify key with retry logic
+-- Function to verify key with retry logic and debugging
 local function verifyKey(key, maxRetries, retryDelay)
     local retries = 0
     while retries < maxRetries do
+        print("Attempting to verify key:", key, "Retry:", retries + 1)
         local success, response = pcall(function()
             return HttpService:GetAsync(API_URL .. "/verify?key=" .. HttpService:UrlEncode(key))
         end)
         
         if success then
+            print("Received response:", response)
             local decodeSuccess, result = pcall(function()
                 return HttpService:JSONDecode(response)
             end)
             
             if decodeSuccess then
                 if result.error then
+                    print("API Error:", result.error)
                     return false, "API Error: " .. result.error
                 end
+                print("Verification result:", result)
                 return true, result
             else
+                print("Failed to parse response:", response)
                 return false, "Failed to parse API response"
             end
         else
+            print("Connection failed, error:", response)
             retries = retries + 1
             if retries < maxRetries then
                 wait(retryDelay)
@@ -69,7 +75,7 @@ ScreenGui.Name = "PremiumUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 400) -- Fixed size for mobile/PC scaling
+MainFrame.Size = UDim2.new(0, 300, 0, 400)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
@@ -185,7 +191,7 @@ local function autoFarm(isActive)
         spawn(function()
             while isActive and wait(0.1) do
                 for _, v in pairs(game.Workspace:GetDescendants()) do
-                    if v.Name == "FarmSpot" then -- Replace with actual farm spot name
+                    if v.Name == "FarmSpot" then
                         Player.Character.HumanoidRootPart.CFrame = v.CFrame
                         wait(0.5)
                     end
@@ -199,11 +205,11 @@ local function autoLevel(isActive)
     if isActive then
         spawn(function()
             while isActive and wait(1) do
-                local levelPart = game.Workspace:FindFirstChild("LevelUpPart") -- Replace with actual part name
+                local levelPart = game.Workspace:FindFirstChild("LevelUpPart")
                 if levelPart then
                     Player.Character.HumanoidRootPart.CFrame = levelPart.CFrame
                     wait(0.5)
-                    game:GetService("ReplicatedStorage").LevelUp:FireServer() -- Replace with actual level-up event
+                    game:GetService("ReplicatedStorage").LevelUp:FireServer()
                 end
             end
         end)
@@ -264,9 +270,9 @@ end
 
 local function speedHack(isActive)
     if isActive then
-        Player.Character.Humanoid.WalkSpeed = 50 -- Adjust speed as needed
+        Player.Character.Humanoid.WalkSpeed = 50
     else
-        Player.Character.Humanoid.WalkSpeed = 16 -- Reset to default
+        Player.Character.Humanoid.WalkSpeed = 16
     end
 end
 
