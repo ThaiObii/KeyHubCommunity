@@ -10,12 +10,12 @@ local RunService = game:GetService("RunService")
 local Player = Players.LocalPlayer
 local API_URL = "https://192.168.1.20:5000"  -- Update to your deployed API URL
 
--- Function to verify key with retry logic and SSL bypass for local testing
+-- Function to verify key with retry logic and fallback for SSL issues
 local function verifyKey(key, maxRetries, retryDelay)
     local retries = 0
     while retries < maxRetries do
         local success, response
-        -- Use RequestInternal with IgnoreSslValidation for self-signed certificates (local testing only)
+        -- Try RequestInternal with IgnoreSslValidation first
         success, response = pcall(function()
             return HttpService:RequestInternal({
                 Url = API_URL .. "/verify?key=" .. HttpService:UrlEncode(key),
@@ -24,12 +24,20 @@ local function verifyKey(key, maxRetries, retryDelay)
             }).Body
         end)
         
-        if success then
+        if not success then
+            print("RequestInternal failed: " .. tostring(response))
+            -- Fallback to GetAsync (may fail with SSL error)
+            success, response = pcall(function()
+                return HttpService:GetAsync(API_URL .. "/verify?key=" .. HttpService:UrlEncode(key))
+            end)
+        end
+        
+        if success and response and response ~= "" then
             local decodeSuccess, result = pcall(function()
                 return HttpService:JSONDecode(response)
             end)
             
-            if decodeSuccess then
+            if decodeSuccess and result then
                 if result.error then
                     print("API Error: " .. result.error)
                     return false, "API Error: " .. result.error
@@ -42,7 +50,7 @@ local function verifyKey(key, maxRetries, retryDelay)
             end
         else
             retries = retries + 1
-            print("Connection attempt " .. retries .. " failed: " .. tostring(response))
+            print("Connection attempt " .. retries .. " failed: " .. tostring(response or "No response"))
             if retries < maxRetries then
                 wait(retryDelay)
             else
@@ -56,7 +64,7 @@ end
 -- Verify key
 local success, result = verifyKey(getgenv().Key, 3, 1)
 if not success then
-    Player:Kick("Lỗi: " .. result .. ". \n- Đảm bảo API đang chạy tại " .. API_URL .. ". \n- Nếu dùng chứng chỉ tự ký, triển khai API với chứng chỉ đáng tin cậy. \nLiên hệ quản trị viên hoặc thử lại sau.")
+    Player:Kick("Lỗi: " .. result .. ". \n- Đảm bảo API đang chạy tại " .. API_URL .. ". \n- Nếu dùng chứng chỉ tự ký, triển khai API với chứng chỉ đáng tin cậy. \n- Kiểm tra executor hỗ trợ HTTP/HTTPS. \nLiên hệ quản trị viên hoặc thử lại sau.")
     return
 end
 
@@ -190,15 +198,21 @@ local function createToggleButton(text, defaultState, callback)
     end)
 end
 
--- Implement features
+-- Implement features with error handling
 local function autoFarm(isActive)
     if isActive then
         spawn(function()
             while isActive and wait(0.1) do
-                for _, v in pairs(game.Workspace:GetDescendants()) do
+                local farmSpots = game.Workspace:GetDescendants()
+                for _, v in pairs(farmSpots) do
                     if v.Name == "FarmSpot" then -- Replace with actual farm spot name
-                        Player.Character.HumanoidRootPart.CFrame = v.CFrame
-                        wait(0.5)
+                        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                            Player.Character.HumanoidRootPart.CFrame = v.CFrame
+                            wait(0.5)
+                        else
+                            print("Character or HumanoidRootPart not found, stopping autoFarm")
+                            break
+                        end
                     end
                 end
             end
@@ -211,10 +225,18 @@ local function autoLevel(isActive)
         spawn(function()
             while isActive and wait(1) do
                 local levelPart = game.Workspace:FindFirstChild("LevelUpPart") -- Replace with actual part name
-                if levelPart then
+                if levelPart and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
                     Player.Character.HumanoidRootPart.CFrame = levelPart.CFrame
                     wait(0.5)
-                    game:GetService("ReplicatedStorage").LevelUp:FireServer() -- Replace with actual level-up event
+                    local success, err = pcall(function()
+                        game:GetService("ReplicatedStorage").LevelUp:FireServer() -- Replace with actual level-up event
+                    end)
+                    if not success then
+                        print("LevelUp event failed: " .. tostring(err))
+                    end
+                else
+                    print("LevelUpPart or character not found, stopping autoLevel")
+                    break
                 end
             end
         end)
@@ -226,12 +248,12 @@ local function esp(isActive)
         spawn(function()
             while isActive and wait(0.5) do
                 for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= Player then
-                        local billboard = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("ESPBillboard")
+                    if player ~= Player and player.Character and player.Character:FindFirstChild("Head") then
+                        local billboard = player.Character.Head:FindFirstChild("ESPBillboard")
                         if not billboard then
                             billboard = Instance.new("BillboardGui")
                             billboard.Name = "ESPBillboard"
-                            billboard.Parent = player.Character and player.Character:FindFirstChild("Head") or nil
+                            billboard.Parent = player.Character.Head
                             billboard.Size = UDim2.new(0, 100, 0, 50)
                             billboard.AlwaysOnTop = true
                             local text = Instance.new("TextLabel")
@@ -246,8 +268,8 @@ local function esp(isActive)
             end
         else
             for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Player then
-                    local billboard = player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("ESPBillboard")
+                if player ~= Player and player.Character and player.Character:FindFirstChild("Head") then
+                    local billboard = player.Character.Head:FindFirstChild("ESPBillboard")
                     if billboard then billboard:Destroy() end
                 end
             end
@@ -262,7 +284,7 @@ local function aimbot(isActive)
                 local target = nil
                 local maxDist = math.huge
                 for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= Player and player.Character and player.Character:FindFirstChild("Head") then
+                    if player ~= Player and player.Character and player.Character:FindFirstChild("Head") and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
                         local dist = (Player.Character.Head.Position - player.Character.Head.Position).Magnitude
                         if dist < maxDist then
                             maxDist = dist
@@ -270,7 +292,7 @@ local function aimbot(isActive)
                         end
                     end
                 end
-                if target then
+                if target and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
                     Player.Character.HumanoidRootPart.CFrame = CFrame.new(Player.Character.HumanoidRootPart.Position, target.Position)
                 end
             end
@@ -279,10 +301,14 @@ local function aimbot(isActive)
 end
 
 local function speedHack(isActive)
-    if isActive then
-        Player.Character.Humanoid.WalkSpeed = 50 -- Adjust speed as needed
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        if isActive then
+            Player.Character.Humanoid.WalkSpeed = 50 -- Adjust speed as needed
+        else
+            Player.Character.Humanoid.WalkSpeed = 16 -- Reset to default
+        end
     else
-        Player.Character.Humanoid.WalkSpeed = 16 -- Reset to default
+        print("Humanoid not found, speedHack disabled")
     end
 end
 
