@@ -1,153 +1,272 @@
--- Script Cao Cấp với Giao Diện Hiện Đại
+-- Script Premium
+repeat wait() until game:IsLoaded() and game.Players.LocalPlayer
+getgenv().Key = getgenv().Key or ""
+
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local Player = Players.LocalPlayer
+local API_URL = "https://192.168.1.20:5000"  -- Update to your deployed API URL
 
--- Kiểm tra khóa API với thử lại
-local function verifyKey(key)
-    local maxRetries = 3
-    local retryDelay = 2
-    for attempt = 1, maxRetries do
+-- Function to verify key with retry logic
+local function verifyKey(key, maxRetries, retryDelay)
+    local retries = 0
+    while retries < maxRetries do
         local success, response = pcall(function()
-            return HttpService:GetAsync("http://192.168.1.10:5000/verify?key=" .. key, true, {["Timeout"] = 10})
+            return HttpService:GetAsync(API_URL .. "/verify?key=" .. HttpService:UrlEncode(key))
         end)
+        
         if success then
-            local success_decode, data = pcall(function()
+            local decodeSuccess, result = pcall(function()
                 return HttpService:JSONDecode(response)
             end)
-            if success_decode then
-                if not data.exists then
-                    return false, "Khóa không hợp lệ: Khóa không tồn tại."
-                elseif not data.redeemed then
-                    return false, "Khóa chưa được kích hoạt: Vui lòng kích hoạt khóa bằng lệnh /redeem."
+            
+            if decodeSuccess then
+                if result.error then
+                    return false, "API Error: " .. result.error
                 end
-                return data.valid, "Khóa đã được xác minh thành công."
+                return true, result
             else
-                return false, "Lỗi khi phân tích phản hồi từ API."
+                return false, "Failed to parse API response"
+            end
+        else
+            retries = retries + 1
+            if retries < maxRetries then
+                wait(retryDelay)
+            else
+                return false, "Connection error: Unable to reach API after " .. maxRetries .. " attempts"
             end
         end
-        wait(retryDelay)
     end
-    return false, "Không thể kết nối với API. Vui lòng kiểm tra URL API hoặc kết nối mạng."
 end
 
--- Đá người chơi nếu khóa không hợp lệ hoặc chưa được kích hoạt
-if not getgenv().Key then
-    LocalPlayer:Kick("Không cung cấp khóa API. Vui lòng sử dụng khóa hợp lệ.")
-    return
-end
-local isValid, message = verifyKey(getgenv().Key)
-if not isValid then
-    LocalPlayer:Kick(message)
+-- Verify key
+local success, result = verifyKey(getgenv().Key, 3, 1)
+if not success then
+    Player:Kick("Lỗi: " .. result .. ". Liên hệ quản trị viên hoặc thử lại sau.")
     return
 end
 
--- Tải Thư Viện Giao Diện Vestra (hiện đại, mượt mà)
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/0zBug/Vestra/main/Vestra.lua"))()
-local Window = Library:CreateWindow("Trung Tâm Script Cao Cấp", {
-    Theme = "Dark",
-    AccentColor = Color3.fromRGB(0, 120, 255),
-    Transparency = 0.15,
-    CornerRadius = 10,
-    Animation = {Type = "FadeIn", Duration = 0.5}
-})
+if not result.valid or not result.redeemed then
+    local errorMsg
+    if not result.exists then
+        errorMsg = "Key không hợp lệ. Vui lòng sử dụng /genkey và /redeem trên Discord."
+    elseif not result.redeemed then
+        errorMsg = "Key chưa được kích hoạt. Vui lòng sử dụng /redeem trên Discord."
+    else
+        errorMsg = "Key không hợp lệ. Vui lòng kiểm tra lại."
+    end
+    Player:Kick("Lỗi: " .. errorMsg)
+    return
+end
 
--- Tab Chính với thiết kế hiện đại
-local MainTab = Window:CreateTab("Chính", "rbxasset://textures/ui/GuiImagePlaceholder.png", {
-    Animation = {Type = "SlideIn", Direction = "Left", Duration = 0.3}
-})
-MainTab:CreateSection("Chào Mừng, " .. LocalPlayer.Name .. "!", {
-    Gradient = {Color3.fromRGB(0, 120, 255), Color3.fromRGB(0, 255, 200)},
-    Font = Enum.Font.GothamBold
-})
-MainTab:CreateLabel("Khóa của bạn: " .. getgenv().Key, {
-    TextColor = Color3.fromRGB(150, 200, 255),
-    Font = Enum.Font.GothamBold,
-    Animation = {Type = "FadeIn", Duration = 0.4}
-})
+-- Premium UI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player.PlayerGui
+ScreenGui.Name = "PremiumUI"
+ScreenGui.ResetOnSpawn = false
 
-MainTab:CreateButton("Kích Hoạt Tính Năng Cao Cấp", function()
-    print("Tính năng cao cấp đã được kích hoạt!")
-    Library:Notify("Tính Năng Đã Kích Hoạt!", 3, "Thành Công", {
-        Animation = {Type = "PopIn", Duration = 0.3}
-    })
-    -- Thêm chức năng script cao cấp tại đây
-end, {
-    Color = Color3.fromRGB(0, 170, 255),
-    HoverColor = Color3.fromRGB(0, 200, 255),
-    TextColor = Color3.fromRGB(255, 255, 255),
-    BorderColor = Color3.fromRGB(50, 50, 50),
-    Animation = {Type = "Scale", Duration = 0.2}
-})
+-- Adjust size based on device
+local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+local frameSize = isMobile and UDim2.new(0.8, 0, 0.9, 0) or UDim2.new(0.5, 0, 0.6, 0)
+local framePosition = isMobile and UDim2.new(0.1, 0, 0.05, 0) or UDim2.new(0.25, 0, 0.2, 0)
 
-MainTab:CreateToggle("Tự Động Kích Hoạt Tính Năng", false, function(state)
-    print("Tự động kích hoạt được đặt thành: " .. tostring(state))
-    -- Thêm logic tự động kích hoạt tại đây
-end, {
-    EnabledColor = Color3.fromRGB(0, 255, 100),
-    DisabledColor = Color3.fromRGB(100, 100, 100),
-    Animation = {Type = "FadeIn", Duration = 0.3}
-})
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = frameSize
+MainFrame.Position = UDim2.new(0.25, 0, -0.6, 0) -- Start off-screen for animation
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Visible = false -- Hidden by default, toggled by button
 
-MainTab:CreateSlider("Cường Độ Tính Năng", 0, 100, 50, function(value)
-    print("Cường độ tính năng được đặt thành: " .. value)
-    -- Thêm logic dựa trên cường độ tại đây
-end, {
-    Color = Color3.fromRGB(0, 120, 255),
-    MarkerColor = Color3.fromRGB(255, 255, 255),
-    Gradient = {Color3.fromRGB(0, 120, 255), Color3.fromRGB(0, 255, 200)},
-    Animation = {Type = "Slide", Duration = 0.3}
-})
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 15)
+UICorner.Parent = MainFrame
 
--- Thanh trạng thái
-MainTab:CreateLabel("Trạng Thái: Đã Kết Nối", {
-    TextColor = Color3.fromRGB(0, 255, 100),
-    Font = Enum.Font.Gotham,
-    Animation = {Type = "FadeIn", Duration = 0.5}
-})
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 170))
+}
+UIGradient.Rotation = 45
+UIGradient.Parent = MainFrame
 
--- Tab Cài Đặt với các tính năng bổ sung
-local SettingsTab = Window:CreateTab("Cài Đặt", "rbxasset://textures/ui/Settings.png", {
-    Animation = {Type = "SlideIn", Direction = "Right", Duration = 0.3}
-})
-SettingsTab:CreateSection("Quản Lý Tài Khoản", {
-    Gradient = {Color3.fromRGB(255, 50, 50), Color3.fromRGB(255, 100, 100)}
-})
-SettingsTab:CreateButton("Đăng Xuất", function()
-    LocalPlayer:Kick("Đã đăng xuất. Vui lòng khởi động lại script với khóa mới.")
-end, {
-    Color = Color3.fromRGB(255, 50, 50),
-    HoverColor = Color3.fromRGB(255, 100, 100),
-    TextColor = Color3.fromRGB(255, 255, 255),
-    BorderColor = Color3.fromRGB(50, 50, 50),
-    Animation = {Type = "Scale", Duration = 0.2}
-})
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0.1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Script Premium"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBlack
+Title.TextStrokeTransparency = 0.8
+Title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+Title.Parent = MainFrame
 
-SettingsTab:CreateDropdown("Giao Diện", {"Tối", "Sáng", "Neon"}, "Tối", function(theme)
-    Library:SetTheme(theme == "Tối" and "Dark" or theme == "Sáng" and "Light" or "Neon")
-    Library:Notify("Giao diện đã đổi thành " .. theme, 3, "Thông Tin", {
-        Animation = {Type = "PopIn", Duration = 0.3}
-    })
-end, {
-    Color = Color3.fromRGB(50, 50, 50),
-    TextColor = Color3.fromRGB(200, 200, 200),
-    Animation = {Type = "FadeIn", Duration = 0.3}
-})
+-- Toggle Button
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.1, 0, 0.05, 0)
+ToggleButton.Position = UDim2.new(0.9, -50, 0.9, -30)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+ToggleButton.Text = "☰"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextScaled = true
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = ScreenGui
 
--- Thông tin người dùng
-SettingsTab:CreateSection("Thông Tin Người Dùng")
-SettingsTab:CreateLabel("Tên: " .. LocalPlayer.Name, {
-    TextColor = Color3.fromRGB(200, 200, 200),
-    Font = Enum.Font.Gotham
-})
-SettingsTab:CreateLabel("ID: " .. LocalPlayer.UserId, {
-    TextColor = Color3.fromRGB(200, 200, 200),
-    Font = Enum.Font.Gotham
-})
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 10)
+ToggleCorner.Parent = ToggleButton
 
--- Khởi tạo Giao Diện
-Library:Notify("Trung Tâm Script Cao Cấp Đã Tải", 5, "Thành Công", {
-    Animation = {Type = "FadeIn", Duration = 0.5}
-})
-Window:SelectTab(MainTab)
+local ToggleGradient = Instance.new("UIGradient")
+ToggleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 170))
+}
+ToggleGradient.Rotation = 45
+ToggleGradient.Parent = ToggleButton
+
+local isMenuVisible = false
+ToggleButton.MouseButton1Click:Connect(function()
+    isMenuVisible = not isMenuVisible
+    MainFrame.Visible = isMenuVisible
+    if isMenuVisible then
+        TweenService:Create(MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = framePosition}):Play()
+    else
+        TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(0.25, 0, -0.6, 0)}):Play()
+    end
+end)
+
+-- Button Container
+local ButtonContainer = Instance.new("Frame")
+ButtonContainer.Size = UDim2.new(0.9, 0, 0.7, 0)
+ButtonContainer.Position = UDim2.new(0.05, 0, 0.15, 0)
+ButtonContainer.BackgroundTransparency = 1
+ButtonContainer.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, isMobile and 5 or 10)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = ButtonContainer
+
+local function createButton(text, callback, isToggle)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, 0, 0, isMobile and 40 or 50)
+    Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Button.Text = text
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextScaled = true
+    Button.Font = Enum.Font.GothamBold
+    Button.Parent = ButtonContainer
+    
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 10)
+    ButtonCorner.Parent = Button
+    
+    local ButtonGradient = Instance.new("UIGradient")
+    ButtonGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 170))
+    }
+    ButtonGradient.Rotation = 45
+    ButtonGradient.Parent = Button
+    
+    if isToggle then
+        local isActive = false
+        Button.MouseButton1Click:Connect(function()
+            isActive = not isActive
+            Button.BackgroundColor3 = isActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(30, 30, 30)
+            callback(isActive)
+        end)
+    else
+        Button.MouseButton1Click:Connect(callback)
+    end
+end
+
+-- Feature Implementations
+local autoFarmActive = false
+createButton("Auto Farm", function(active)
+    autoFarmActive = active
+    spawn(function()
+        while autoFarmActive and wait(1) do
+            local humanoidRootPart = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart then
+                humanoidRootPart.CFrame = CFrame.new(0, 50, 0) -- Placeholder: Move to a farm area
+                print("Auto Farm đang hoạt động...")
+            end
+        end
+    end)
+end, true)
+
+createButton("Level Hack", function()
+    local character = Player.Character
+    if character and character:FindFirstChild("Humanoid") then
+        character.Humanoid.WalkSpeed = 100 -- Placeholder: Increase level/speed
+        print("Level Hack đã kích hoạt!")
+    end
+end)
+
+createButton("Speed Hack", function()
+    local character = Player.Character
+    if character and character:FindFirstChild("Humanoid") then
+        character.Humanoid.WalkSpeed = 50 -- Adjustable speed
+        print("Speed Hack đã kích hoạt!")
+    end
+end)
+
+-- Close Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0.1, 0, 0.05, 0)
+CloseButton.Position = UDim2.new(0.85, 0, 0.05, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextScaled = true
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = MainFrame
+
+local UICornerClose = Instance.new("UICorner")
+UICornerClose.CornerRadius = UDim.new(0, 5)
+UICornerClose.Parent = CloseButton
+
+CloseButton.MouseButton1Click:Connect(function()
+    TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(0.25, 0, -0.6, 0)}):Play()
+    wait(0.5)
+    MainFrame.Visible = false
+end)
+
+-- Draggable UI
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Welcome animation (triggered on toggle)
+print("Script Premium đã tải thành công!")
